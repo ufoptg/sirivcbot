@@ -8,11 +8,11 @@ from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from youtubesearchpython.__future__ import VideosSearch
 
-from AnonXMusic.utils.database import is_on_off
-from AnonXMusic.utils.formatters import time_to_seconds
+from SiriVcBot.utils.database import is_on_off
+from SiriVcBot.utils.formatters import time_to_seconds
 
 # Assuming Spotify-related imports and methods exist
-from AnonXMusic.utils.spotify import search_spotify, download_from_spotify  # Replace with actual import
+from SiriVcBot.utils.spotify import search_spotify, download_from_spotify  # Replace with actual import
 
 async def shell_cmd(cmd: str) -> str:
     proc = await asyncio.create_subprocess_shell(
