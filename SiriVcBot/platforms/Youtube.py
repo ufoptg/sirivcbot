@@ -18,7 +18,7 @@ from SiriVcBot.utils.formatters import time_to_seconds
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 
 def authenticate_youtube():
-    """Handles the OAuth2 authentication process."""
+    """Handles the OAuth2 authentication process in a purely manual way."""
     credentials = None
     if os.path.exists('token.pickle'):
         with open('token.pickle', 'rb') as token:
@@ -31,17 +31,14 @@ def authenticate_youtube():
             flow = InstalledAppFlow.from_client_secrets_file(
                 '/home/vm/sirivcbot/SiriVcBot/credentials.json', SCOPES)
 
-            # For headless environments, provide instructions
-            try:
-                credentials = flow.run_local_server(port=0)
-            except Exception as e:
-                # In case run_local_server fails, provide manual instructions
-                print("Running in a headless environment.")
-                auth_url, _ = flow.authorization_url()
-                print("Visit this URL in your browser to authorize the application:")
-                print(auth_url)
-                code = input("Enter the authorization code here: ")
-                credentials = flow.fetch_token(code=code)
+            # Generate the authorization URL
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print("Visit this URL in your browser to authorize the application:")
+            print(auth_url)
+
+            # Manually enter the authorization code
+            code = input("Enter the authorization code here: ")
+            credentials = flow.fetch_token(code=code)
 
         with open('token.pickle', 'wb') as token:
             pickle.dump(credentials, token)
