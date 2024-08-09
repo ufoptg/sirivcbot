@@ -54,7 +54,7 @@ async def init():
     )
     await idle()
     await app.stop()
-    LOGGER("SiriVcBot").info("Stopping AnonX Music Bot...")
+    LOGGER("SiriVcBot").info("Stopping SiriVcBot Music Bot...")
 
 
 if __name__ == "__main__":
