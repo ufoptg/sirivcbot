@@ -5,10 +5,6 @@ import logging
 from typing import Union
 import yt_dlp
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from SiriVcBot.utils.database import is_on_off
@@ -21,33 +17,14 @@ logger = logging.getLogger(__name__)
 # YouTube API key
 API_KEY = 'AIzaSyDQVt8rQcaK97h97hYnzOVBAuTN-G3qq1k'
 
-# OAuth credentials setup
-SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
-CREDENTIALS_FILE = '/home/ubuntu/sirivcbot/SiriVcBot/platforms/credentials.json'
-
 def get_youtube_service(api_key=None):
     if api_key:
         return build('youtube', 'v3', developerKey=api_key)
     else:
-        creds = None
-        # Load credentials from file
-        if os.path.exists('token.json'):
-            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-        # If no valid credentials available, let the user log in
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open('token.json', 'w') as token:
-                token.write(creds.to_json())
-        return build('youtube', 'v3', credentials=creds)
+        raise ValueError("API key must be provided")
 
-# Create service instances
+# Create service instance with API key
 youtube_api_key_service = get_youtube_service(api_key=API_KEY)
-youtube_oauth_service = get_youtube_service()
 
 class YouTubeAPI:
     def __init__(self):
@@ -57,8 +34,7 @@ class YouTubeAPI:
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
         self.youtube = youtube_api_key_service
-        self.youtube_oauth = youtube_oauth_service
-        logger.info("YouTubeAPI initialized with API key and OAuth credentials")
+        logger.info("YouTubeAPI initialized with API key")
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
