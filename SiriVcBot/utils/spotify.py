@@ -29,6 +29,30 @@ class SpotifyAPI:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, func, *args)
 
+    async def search_spotify(self, query: str, limit: int = 10):
+        try:
+            # Ensure Spotify client is initialized
+            if self.spotify is None:
+                raise ValueError("Spotify client is not initialized")
+
+            # Run the Spotify search function in an executor
+            search_results = await self._run_spotify_func(self.spotify.search, query, type='track', limit=limit)
+            
+            # Extract relevant information from search results
+            tracks = search_results['tracks']['items']
+            results = []
+            for track in tracks:
+                track_info = {
+                    'name': track['name'],
+                    'artist': track['artists'][0]['name'],
+                    'url': track['external_urls']['spotify']
+                }
+                results.append(track_info)
+            return results
+        except Exception as e:
+            print(f"Error searching Spotify: {e}")
+            return []
+
     async def track(self, link: str):
         try:
             track = await self._run_spotify_func(self.spotify.track, link)
