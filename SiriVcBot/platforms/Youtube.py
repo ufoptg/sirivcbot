@@ -23,7 +23,7 @@ API_KEY = 'AIzaSyDQVt8rQcaK97h97hYnzOVBAuTN-G3qq1k'
 
 # OAuth credentials setup
 SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
-CREDENTIALS_FILE = 'credentials.json'
+CREDENTIALS_FILE = '/home/ubuntu/sirivcbot/SiriVcBot/platforms/credentials.json'
 
 def get_youtube_service(api_key=None):
     if api_key:
