@@ -31,7 +31,7 @@ def authenticate_youtube():
             flow = InstalledAppFlow.from_client_secrets_file(
                 '/home/vm/sirivcbot/SiriVcBot/credentials.json', SCOPES)
             
-            flow.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+            flow.redirect_uri = "http://localhost:8080"
 
             # Generate the authorization URL
             auth_url, _ = flow.authorization_url(prompt='consent')
