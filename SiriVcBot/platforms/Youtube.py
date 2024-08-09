@@ -30,7 +30,7 @@ def authenticate_youtube():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 '/home/vm/sirivcbot/SiriVcBot/credentials.json', SCOPES)
-            credentials = flow.run_local_server(port=0)
+            credentials = flow.run_console()  # Changed from run_local_server to run_console
 
         with open('token.pickle', 'wb') as token:
             pickle.dump(credentials, token)
