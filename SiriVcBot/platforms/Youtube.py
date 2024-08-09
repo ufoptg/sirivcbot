@@ -5,7 +5,9 @@ import logging
 from typing import Union
 import yt_dlp
 from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
@@ -16,22 +18,36 @@ from SiriVcBot.utils.formatters import time_to_seconds
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Path to your credentials file
-CREDS_FILE = 'path/to/credentials.json'
+# YouTube API key
+API_KEY = 'AIzaSyDQVt8rQcaK97h97hYnzOVBAuTN-G3qq1k'
 
-def get_authenticated_service():
-    creds = None
-    if os.path.exists(CREDS_FILE):
-        creds = Credentials.from_authorized_user_file(CREDS_FILE, ['https://www.googleapis.com/auth/youtube.readonly'])
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            logger.error("No valid credentials found")
-            raise ValueError("No valid credentials found")
+# OAuth credentials setup
+SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
+CREDENTIALS_FILE = 'credentials.json'
 
-    return build('youtube', 'v3', credentials=creds)
+def get_youtube_service(api_key=None):
+    if api_key:
+        return build('youtube', 'v3', developerKey=api_key)
+    else:
+        creds = None
+        # Load credentials from file
+        if os.path.exists('token.json'):
+            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        # If no valid credentials available, let the user log in
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
+        return build('youtube', 'v3', credentials=creds)
+
+# Create service instances
+youtube_api_key_service = get_youtube_service(api_key=API_KEY)
+youtube_oauth_service = get_youtube_service()
 
 class YouTubeAPI:
     def __init__(self):
@@ -40,8 +56,9 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-        self.youtube = get_authenticated_service()
-        logger.info("YouTubeAPI initialized with authenticated service")
+        self.youtube = youtube_api_key_service
+        self.youtube_oauth = youtube_oauth_service
+        logger.info("YouTubeAPI initialized with API key and OAuth credentials")
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -197,49 +214,6 @@ class YouTubeAPI:
             }, video_id
         logger.warning(f"Track info not found for video ID {video_id}")
         return None
-
-    async def formats(self, link: str, videoid: Union[bool, str] = None):
-        if videoid:
-            link = self.base + link
-        ydl_opts = {"quiet": True, "user-agent": "Mozilla/5.0"}
-        ydl = yt_dlp.YoutubeDL(ydl_opts)
-        with ydl:
-            formats_available = []
-            try:
-                r = ydl.extract_info(link, download=False)
-                for format in r["formats"]:
-                    if not "dash" in str(format["format"]).lower():
-                        formats_available.append(
-                            {
-                                "format": format["format"],
-                                "filesize": format["filesize"],
-                                "format_id": format["format_id"],
-                                "ext": format["ext"],
-                                "format_note": format["format_note"],
-                                "yturl": link,
-                            }
-                        )
-                logger.info(f"Formats available for link: {link}")
-                return formats_available, link
-            except Exception as e:
-                logger.error(f"Exception occurred while retrieving formats for link {link}: {e}")
-                return str(e), link
-
-    async def slider(self, link: str, query_type: int, videoid: Union[bool, str] = None):
-        if videoid:
-            link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
-        try:
-            a = await self.search(link, limit=10)
-            result = a.get("result")[query_type]
-            logger.info(f"Slider result for link {link}: {result['title']}")
-            return result["title"], result["duration"], result["thumbnails"][0]["url"].split("?")[0], result["id"]
-        except Exception as e:
-            logger.error(f"Exception occurred while retrieving slider info for link {link}: {e}")
-            return None
 
     async def download(
         self,
