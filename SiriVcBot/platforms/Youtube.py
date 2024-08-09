@@ -3,28 +3,14 @@ import os
 import re
 from typing import Union
 import yt_dlp
+from googleapiclient.discovery import build
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
-from youtubesearchpython.__future__ import VideosSearch
-
 from SiriVcBot.utils.database import is_on_off
 from SiriVcBot.utils.formatters import time_to_seconds
 
-
-async def shell_cmd(cmd):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    out, errorz = await proc.communicate()
-    if errorz:
-        if "unavailable videos are hidden" in (errorz.decode("utf-8")).lower():
-            return out.decode("utf-8")
-        else:
-            return errorz.decode("utf-8")
-    return out.decode("utf-8")
-
+# Replace with your YouTube Data API v3 key
+API_KEY = 'AIzaSyDQVt8rQcaK97h97hYnzOVBAuTN-G3qq1k'
 
 class YouTubeAPI:
     def __init__(self):
@@ -33,6 +19,7 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        self.youtube = build('youtube', 'v3', developerKey=API_KEY)
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -54,54 +41,62 @@ class YouTubeAPI:
                         return entity.url
         return None
 
+    async def get_video_info(self, video_id: str):
+        request = self.youtube.videos().list(
+            part='snippet,contentDetails,statistics',
+            id=video_id
+        )
+        response = request.execute()
+        if response.get('items'):
+            video = response['items'][0]
+            title = video['snippet']['title']
+            duration = video['contentDetails']['duration']
+            thumbnail = video['snippet']['thumbnails']['high']['url']
+            views = video['statistics'].get('viewCount', 'N/A')
+            return title, duration, thumbnail, views
+        else:
+            return None
+
     async def details(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
-        results = VideosSearch(link, limit=1)
-        result = (await results.next())["result"][0]
-        title = result["title"]
-        duration_min = result["duration"]
-        thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-        vidid = result["id"]
-        duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
-        return title, duration_min, duration_sec, thumbnail, vidid
+        video_id = link.split('v=')[-1].split('&')[0]
+        info = await self.get_video_info(video_id)
+        if info:
+            title, duration, thumbnail, views = info
+            duration_sec = int(time_to_seconds(duration)) if duration else 0
+            return title, duration, duration_sec, thumbnail, video_id
+        return None
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
-        results = VideosSearch(link, limit=1)
-        result = (await results.next())["result"][0]
-        return result["title"]
+        video_id = link.split('v=')[-1].split('&')[0]
+        info = await self.get_video_info(video_id)
+        if info:
+            title, _, _, _ = info
+            return title
+        return None
 
     async def duration(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
-        results = VideosSearch(link, limit=1)
-        result = (await results.next())["result"][0]
-        return result["duration"]
+        video_id = link.split('v=')[-1].split('&')[0]
+        info = await self.get_video_info(video_id)
+        if info:
+            _, duration, _, _ = info
+            return duration
+        return None
 
     async def thumbnail(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
-        results = VideosSearch(link, limit=1)
-        result = (await results.next())["result"][0]
-        return result["thumbnails"][0]["url"].split("?")[0]
+        video_id = link.split('v=')[-1].split('&')[0]
+        info = await self.get_video_info(video_id)
+        if info:
+            _, _, thumbnail, _ = info
+            return thumbnail
+        return None
 
     async def video(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -147,23 +142,22 @@ class YouTubeAPI:
             link = link.split("&")[0]
         if "?si=" in link:
             link = link.split("?si=")[0]
-        results = VideosSearch(link, limit=1)
-        result = (await results.next())["result"][0]
-        return {
-            "title": result["title"],
-            "link": result["link"],
-            "vidid": result["id"],
-            "duration_min": result["duration"],
-            "thumb": result["thumbnails"][0]["url"].split("?")[0],
-        }, result["id"]
+        video_id = link.split('v=')[-1].split('&')[0]
+        info = await self.get_video_info(video_id)
+        if info:
+            title, _, thumbnail, _ = info
+            return {
+                "title": title,
+                "link": link,
+                "vidid": video_id,
+                "duration_min": duration,
+                "thumb": thumbnail,
+            }, video_id
+        return None
 
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
             link = self.base + link
-        if "&" in link:
-            link = link.split("&")[0]
-        if "?si=" in link:
-            link = link.split("?si=")[0]
         ydl_opts = {"quiet": True, "user-agent": "Mozilla/5.0"}
         ydl = yt_dlp.YoutubeDL(ydl_opts)
         with ydl:
@@ -198,8 +192,8 @@ class YouTubeAPI:
             link = link.split("&")[0]
         if "?si=" in link:
             link = link.split("?si=")[0]
-        a = VideosSearch(link, limit=10)
-        result = (await a.next()).get("result")[query_type]
+        a = await self.search(link, limit=10)
+        result = a.get("result")[query_type]
         return result["title"], result["duration"], result["thumbnails"][0]["url"].split("?")[0], result["id"]
 
     async def download(
