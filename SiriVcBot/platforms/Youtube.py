@@ -31,8 +31,17 @@ def authenticate_youtube():
             flow = InstalledAppFlow.from_client_secrets_file(
                 '/home/vm/sirivcbot/SiriVcBot/credentials.json', SCOPES)
 
-            # Use run_console instead of run_local_server for headless environments
-            credentials = flow.run_console()
+            # For headless environments, provide instructions
+            try:
+                credentials = flow.run_local_server(port=0)
+            except Exception as e:
+                # In case run_local_server fails, provide manual instructions
+                print("Running in a headless environment.")
+                auth_url, _ = flow.authorization_url()
+                print("Visit this URL in your browser to authorize the application:")
+                print(auth_url)
+                code = input("Enter the authorization code here: ")
+                credentials = flow.fetch_token(code=code)
 
         with open('token.pickle', 'wb') as token:
             pickle.dump(credentials, token)
