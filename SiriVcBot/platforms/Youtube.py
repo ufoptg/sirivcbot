@@ -10,7 +10,7 @@ from youtubesearchpython.__future__ import VideosSearch
 
 from SiriVcBot.utils.database import is_on_off
 from SiriVcBot.utils.formatters import time_to_seconds
-from Resso import RessoAPI  # Assuming resso.py has a class named RessoAPI
+from Spotify import SpotifyAPI  # Assuming Spotify.py has a class named SpotifyAPI
 
 
 async def shell_cmd(cmd):
@@ -36,7 +36,7 @@ class YouTubeAPI:
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
         self.cookies_file = os.path.join(os.path.dirname(__file__), "youtube_cookies.txt")  # Assuming cookies are in the same directory
-        self.resso_api = RessoAPI()  # Initialize the Resso API for fallback
+        self.spotify_api = SpotifyAPI()  # Initialize the Spotify API for fallback
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -82,8 +82,8 @@ class YouTubeAPI:
                 duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
             return title, duration_min, duration_sec, thumbnail, vidid
         except Exception as e:
-            print(f"Error with YouTube: {e}. Falling back to Resso Music...")
-            return await self.resso_api.details(link)  # Fallback to Resso Music
+            print(f"Error with YouTube: {e}. Falling back to Spotify...")
+            return await self.spotify_api.details(link)  # Fallback to Spotify
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         try:
@@ -96,8 +96,8 @@ class YouTubeAPI:
                 title = result["title"]
             return title
         except Exception as e:
-            print(f"Error with YouTube: {e}. Falling back to Resso Music...")
-            return await self.resso_api.title(link)  # Fallback to Resso Music
+            print(f"Error with YouTube: {e}. Falling back to Spotify...")
+            return await self.spotify_api.title(link)  # Fallback to Spotify
 
     async def duration(self, link: str, videoid: Union[bool, str] = None):
         try:
@@ -110,8 +110,8 @@ class YouTubeAPI:
                 duration = result["duration"]
             return duration
         except Exception as e:
-            print(f"Error with YouTube: {e}. Falling back to Resso Music...")
-            return await self.resso_api.duration(link)  # Fallback to Resso Music
+            print(f"Error with YouTube: {e}. Falling back to Spotify...")
+            return await self.spotify_api.duration(link)  # Fallback to Spotify
 
     async def thumbnail(self, link: str, videoid: Union[bool, str] = None):
         try:
@@ -124,8 +124,8 @@ class YouTubeAPI:
                 thumbnail = result["thumbnails"][0]["url"].split("?")[0]
             return thumbnail
         except Exception as e:
-            print(f"Error with YouTube: {e}. Falling back to Resso Music...")
-            return await self.resso_api.thumbnail(link)  # Fallback to Resso Music
+            print(f"Error with YouTube: {e}. Falling back to Spotify...")
+            return await self.spotify_api.thumbnail(link)  # Fallback to Spotify
 
     async def video(self, link: str, videoid: Union[bool, str] = None):
         try:
@@ -149,8 +149,8 @@ class YouTubeAPI:
             else:
                 return 0, stderr.decode()
         except Exception as e:
-            print(f"Error with YouTube: {e}. Falling back to Resso Music...")
-            return await self.resso_api.video(link)  # Fallback to Resso Music
+            print(f"Error with YouTube: {e}. Falling back to Spotify...")
+            return await self.spotify_api.video(link)  # Fallback to Spotify
 
     # Implement similar error handling and fallback for other methods...
 
@@ -240,5 +240,5 @@ class YouTubeAPI:
                 downloaded_file = await loop.run_in_executor(None, audio_dl)
             return downloaded_file, direct
         except Exception as e:
-            print(f"Error with YouTube download: {e}. Falling back to Resso Music...")
-            return await self.resso_api.download(link)  # Fallback to Resso Music
+            print(f"Error with YouTube download: {e}. Falling back to Spotify...")
+            return await self.spotify_api.download(link)  # Fallback to Spotify
