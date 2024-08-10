@@ -2,65 +2,48 @@ import asyncio
 import os
 import re
 from typing import Union
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
+import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
+from youtubesearchpython.__future__ import VideosSearch
 
 from SiriVcBot.utils.database import is_on_off
 from SiriVcBot.utils.formatters import time_to_seconds
 
-# Define the scopes required for YouTube Data API access
-SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 
-def authenticate_youtube():
-    """Handles the OAuth2 authentication process in a purely manual way."""
-    credentials = None
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            credentials = pickle.load(token)
-
-    if not credentials or not credentials.valid:
-        if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
+async def shell_cmd(cmd):
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out, errorz = await proc.communicate()
+    if errorz:
+        if "unavailable videos are hidden" in (errorz.decode("utf-8")).lower():
+            return out.decode("utf-8")
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                '/home/vm/sirivcbot/SiriVcBot/credentials.json', SCOPES)
-            
-            flow.redirect_uri = "http://localhost:8080"
+            return errorz.decode("utf-8")
+    return out.decode("utf-8")
 
-            # Generate the authorization URL
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            print("Visit this URL in your browser to authorize the application:")
-            print(auth_url)
-
-            # Manually enter the authorization code
-            code = input("Enter the authorization code here: ")
-            credentials = flow.fetch_token(code=code)
-
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(credentials, token)
-
-    return credentials
 
 class YouTubeAPI:
     def __init__(self):
-        # Initialize the YouTube API client
-        self.youtube = build('youtube', 'v3', credentials=authenticate_youtube())
         self.base = "https://www.youtube.com/watch?v="
         self.regex = r"(?:youtube\.com|youtu\.be)"
-    
+        self.status = "https://www.youtube.com/oembed?url="
+        self.listbase = "https://youtube.com/playlist?list="
+        self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
     async def exists(self, link: str, videoid: Union[bool, str] = None):
-        """Check if a YouTube link is valid."""
         if videoid:
             link = self.base + link
-        return bool(re.search(self.regex, link))
+        if re.search(self.regex, link):
+            return True
+        else:
+            return False
 
     async def url(self, message_1: Message) -> Union[str, None]:
-        """Extract URL from a message."""
         messages = [message_1]
         if message_1.reply_to_message:
             messages.append(message_1.reply_to_message)
@@ -84,81 +67,102 @@ class YouTubeAPI:
             return None
         return text[offset : offset + length]
 
-    async def search_video(self, query):
-        """Search for a video on YouTube."""
-        try:
-            request = self.youtube.search().list(
-                part="snippet",
-                maxResults=1,
-                q=query
-            )
-            response = request.execute()
-
-            if response['items']:
-                video = response['items'][0]
-                title = video['snippet']['title']
-                vidid = video['id']['videoId']
-                thumbnail = video['snippet']['thumbnails']['high']['url']
-                duration_min = self.get_video_duration(vidid)
-                return title, duration_min, thumbnail, vidid
-        except HttpError as e:
-            print(f"An error occurred: {e}")
-            return None
-    
-    def get_video_duration(self, video_id):
-        """Get the duration of a video using its ID."""
-        try:
-            request = self.youtube.videos().list(
-                part="contentDetails",
-                id=video_id
-            )
-            response = request.execute()
-            duration = response['items'][0]['contentDetails']['duration']
-            return self.convert_duration(duration)
-        except HttpError as e:
-            print(f"An error occurred: {e}")
-            return None
-
-    def convert_duration(self, duration):
-        """Convert YouTube's ISO 8601 duration to minutes."""
-        match = re.match(r'PT(\d+H)?(\d+M)?(\d+S)?', duration)
-        hours = int(match.group(1)[:-1]) if match.group(1) else 0
-        minutes = int(match.group(2)[:-1]) if match.group(2) else 0
-        seconds = int(match.group(3)[:-1]) if match.group(3) else 0
-        total_minutes = hours * 60 + minutes + seconds / 60
-        return total_minutes
-
-    async def details(self, query):
-        """Fetch video details including title, duration, and thumbnail."""
-        title, duration_min, thumbnail, vidid = await self.search_video(query)
-        duration_sec = int(time_to_seconds(duration_min))
+    async def details(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            title = result["title"]
+            duration_min = result["duration"]
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+            vidid = result["id"]
+            if str(duration_min) == "None":
+                duration_sec = 0
+            else:
+                duration_sec = int(time_to_seconds(duration_min))
         return title, duration_min, duration_sec, thumbnail, vidid
 
-    async def title(self, query):
-        """Get the title of a video."""
-        title, _, _, _ = await self.search_video(query)
+    async def title(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            title = result["title"]
         return title
 
-    async def duration(self, query):
-        """Get the duration of a video."""
-        _, duration_min, _, _ = await self.search_video(query)
-        return duration_min
+    async def duration(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            duration = result["duration"]
+        return duration
 
-    async def thumbnail(self, query):
-        """Get the thumbnail URL of a video."""
-        _, _, thumbnail, _ = await self.search_video(query)
+    async def thumbnail(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
         return thumbnail
 
-    async def video(self, query):
-        """Get the video URL."""
-        _, _, _, vidid = await self.search_video(query)
-        video_url = f"https://www.youtube.com/watch?v={vidid}"
-        return video_url
+    async def video(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        proc = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            "-g",
+            "-f",
+            "best[height<=?720][width<=?1280]",
+            f"{link}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if stdout:
+            return 1, stdout.decode().split("\n")[0]
+        else:
+            return 0, stderr.decode()
 
-    async def track(self, query):
-        """Fetch detailed track information."""
-        title, duration_min, thumbnail, vidid = await self.search_video(query)
-        yturl = f"https://www.youtube.com/watch?v={vidid}"
+    async def playlist(self, link, limit, user_id, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.listbase + link
+        if "&" in link:
+            link = link.split("&")[0]
+        playlist = await shell_cmd(
+            f"yt-dlp -i --get-id --flat-playlist --playlist-end {limit} --skip-download {link}"
+        )
+        try:
+            result = playlist.split("\n")
+            for key in result:
+                if key == "":
+                    result.remove(key)
+        except:
+            result = []
+        return result
+
+    async def track(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        results = VideosSearch(link, limit=1)
+        for result in (await results.next())["result"]:
+            title = result["title"]
+            duration_min = result["duration"]
+            vidid = result["id"]
+            yturl = result["link"]
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
         track_details = {
             "title": title,
             "link": yturl,
@@ -168,8 +172,73 @@ class YouTubeAPI:
         }
         return track_details, vidid
 
-    async def download(self, link: str, video: Union[bool, str] = None):
-        """Download a video using yt-dlp."""
+    async def formats(self, link: str, videoid: Union[bool, str] = None):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        ytdl_opts = {"quiet": True}
+        ydl = yt_dlp.YoutubeDL(ytdl_opts)
+        with ydl:
+            formats_available = []
+            r = ydl.extract_info(link, download=False)
+            for format in r["formats"]:
+                try:
+                    str(format["format"])
+                except:
+                    continue
+                if not "dash" in str(format["format"]).lower():
+                    try:
+                        format["format"]
+                        format["filesize"]
+                        format["format_id"]
+                        format["ext"]
+                        format["format_note"]
+                    except:
+                        continue
+                    formats_available.append(
+                        {
+                            "format": format["format"],
+                            "filesize": format["filesize"],
+                            "format_id": format["format_id"],
+                            "ext": format["ext"],
+                            "format_note": format["format_note"],
+                            "yturl": link,
+                        }
+                    )
+        return formats_available, link
+
+    async def slider(
+        self,
+        link: str,
+        query_type: int,
+        videoid: Union[bool, str] = None,
+    ):
+        if videoid:
+            link = self.base + link
+        if "&" in link:
+            link = link.split("&")[0]
+        a = VideosSearch(link, limit=10)
+        result = (await a.next()).get("result")
+        title = result[query_type]["title"]
+        duration_min = result[query_type]["duration"]
+        vidid = result[query_type]["id"]
+        thumbnail = result[query_type]["thumbnails"][0]["url"].split("?")[0]
+        return title, duration_min, thumbnail, vidid
+
+    async def download(
+        self,
+        link: str,
+        mystic,
+        video: Union[bool, str] = None,
+        videoid: Union[bool, str] = None,
+        songaudio: Union[bool, str] = None,
+        songvideo: Union[bool, str] = None,
+        format_id: Union[bool, str] = None,
+        title: Union[bool, str] = None,
+    ) -> str:
+        if videoid:
+            link = self.base + link
         loop = asyncio.get_running_loop()
 
         def audio_dl():
@@ -206,7 +275,52 @@ class YouTubeAPI:
             x.download([link])
             return xyz
 
-        if video:
+        def song_video_dl():
+            formats = f"{format_id}+140"
+            fpath = f"downloads/{title}"
+            ydl_optssx = {
+                "format": formats,
+                "outtmpl": fpath,
+                "geo_bypass": True,
+                "nocheckcertificate": True,
+                "quiet": True,
+                "no_warnings": True,
+                "prefer_ffmpeg": True,
+                "merge_output_format": "mp4",
+            }
+            x = yt_dlp.YoutubeDL(ydl_optssx)
+            x.download([link])
+
+        def song_audio_dl():
+            fpath = f"downloads/{title}.%(ext)s"
+            ydl_optssx = {
+                "format": format_id,
+                "outtmpl": fpath,
+                "geo_bypass": True,
+                "nocheckcertificate": True,
+                "quiet": True,
+                "no_warnings": True,
+                "prefer_ffmpeg": True,
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }
+                ],
+            }
+            x = yt_dlp.YoutubeDL(ydl_optssx)
+            x.download([link])
+
+        if songvideo:
+            await loop.run_in_executor(None, song_video_dl)
+            fpath = f"downloads/{title}.mp4"
+            return fpath
+        elif songaudio:
+            await loop.run_in_executor(None, song_audio_dl)
+            fpath = f"downloads/{title}.mp3"
+            return fpath
+        elif video:
             if await is_on_off(1):
                 direct = True
                 downloaded_file = await loop.run_in_executor(None, video_dl)
@@ -230,14 +344,3 @@ class YouTubeAPI:
             direct = True
             downloaded_file = await loop.run_in_executor(None, audio_dl)
         return downloaded_file, direct
-
-# Example usage of YouTubeAPI in a Telegram bot handler
-
-async def handle_youtube_query(query: str):
-    yt_api = YouTubeAPI()
-    video_url = await yt_api.video(query)
-    print(f"Found video URL: {video_url}")
-
-if __name__ == '__main__':
-    # Test the API with a sample query
-    asyncio.run(handle_youtube_query("Rick Astley Never Gonna Give You Up"))
