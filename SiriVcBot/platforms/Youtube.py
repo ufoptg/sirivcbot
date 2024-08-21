@@ -34,7 +34,7 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-        self.cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'  # Set the cookies file path
+        self.cookies_path = 'cookies.txt'  # Set the cookies file path
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
