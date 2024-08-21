@@ -34,6 +34,7 @@ class YouTubeAPI:
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
         self.reg = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        self.cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'  # Set the cookies file path
 
     async def exists(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -119,14 +120,12 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        
-        cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'
         proc = await asyncio.create_subprocess_exec(
             "yt-dlp",
             "-g",
             "-f",
             "best[height<=?720][width<=?1280]",
-            "--cookies", cookies_path,
+            "--cookies", self.cookies_path,
             f"{link}",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -142,14 +141,14 @@ class YouTubeAPI:
             link = self.listbase + link
         if "&" in link:
             link = link.split("&")[0]
-        
-        cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'
         playlist = await shell_cmd(
-            f"yt-dlp -i --get-id --flat-playlist --playlist-end {limit} --skip-download --cookies {cookies_path} {link}"
+            f"yt-dlp -i --get-id --flat-playlist --playlist-end {limit} --skip-download --cookies {self.cookies_path} {link}"
         )
         try:
             result = playlist.split("\n")
-            result = [key for key in result if key]  # Clean up empty lines
+            for key in result:
+                if key == "":
+                    result.remove(key)
         except:
             result = []
         return result
@@ -180,17 +179,15 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        
-        cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'
         ytdl_opts = {
             "quiet": True,
-            "cookies": cookies_path
+            "cookies": self.cookies_path
         }
         ydl = yt_dlp.YoutubeDL(ytdl_opts)
         with ydl:
             formats_available = []
             r = ydl.extract_info(link, download=False)
-            for format in r.get("formats", []):
+            for format in r["formats"]:
                 try:
                     str(format["format"])
                 except:
@@ -248,7 +245,6 @@ class YouTubeAPI:
         if videoid:
             link = self.base + link
         loop = asyncio.get_running_loop()
-        cookies_path = '/home/ubuntu/sirivcbot/pragyancookies.txt'
 
         def audio_dl():
             ydl_optssx = {
@@ -258,7 +254,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookies": cookies_path
+                "cookies": self.cookies_path
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
             info = x.extract_info(link, False)
@@ -276,7 +272,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookies": cookies_path
+                "cookies": self.cookies_path
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
             info = x.extract_info(link, False)
@@ -298,7 +294,7 @@ class YouTubeAPI:
                 "no_warnings": True,
                 "prefer_ffmpeg": True,
                 "merge_output_format": "mp4",
-                "cookies": cookies_path
+                "cookies": self.cookies_path
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
             x.download([link])
@@ -320,7 +316,7 @@ class YouTubeAPI:
                         "preferredquality": "192",
                     }
                 ],
-                "cookies": cookies_path
+                "cookies": self.cookies_path
             }
             x = yt_dlp.YoutubeDL(ydl_optssx)
             x.download([link])
@@ -343,7 +339,7 @@ class YouTubeAPI:
                     "-g",
                     "-f",
                     "best[height<=?720][width<=?1280]",
-                    "--cookies", cookies_path,
+                    "--cookies", self.cookies_path,
                     f"{link}",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
